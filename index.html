@@ -325,7 +325,8 @@ const STATE_FULL = {
 /* =========================================================================
    STATE
    ========================================================================= */
-let currentMode = 'home';
+
+  let currentMode = 'home';
 let quizState = null;  // { items, got: Set, keyMap, startMs, timerId, ended }
 
 /* =========================================================================
@@ -897,7 +898,7 @@ function wireInputs() {
       wireInputs._pt = setTimeout(() => {
         if (norm(ans.value) !== tryText) return;
         commitHits(hits, raw);
-      }, 350);
+      }, 150);
       return;
     }
     clearTimeout(wireInputs._pt);
