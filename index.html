@@ -664,13 +664,13 @@ async function startCityQuiz({ title, items, kind, withStateGrid }) {
     if (kind === 'sc200') drawSCMap(us);
     else drawUSMap(us);
     if (withStateGrid) renderStateGrid();
+    if (kind === 'top200') {
+      renderStateBreakdown(items);
+    }
     if (kind === 'top200' || kind === 'sc200') {
       renderRankTable('cities', items.map((c, i) => ({
         idx: i, name: `${c[0]}, ${c[1]}`, pop: c[2]
       })), kind === 'sc200' ? 'SC Cities by Population (2024 ACS)' : 'US Cities by Population (2024 Est.)');
-    }
-    if (kind === 'top200') {
-      renderStateBreakdown(items);
     }
     wireInputs();
     startTimer();
