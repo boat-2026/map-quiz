@@ -244,6 +244,30 @@
   .rank-row.missed .r-name { color: var(--bad); font-style: italic; }
   .rank-row.missed .r-pop  { color: var(--bad); }
 
+  /* State breakdown table (Top 200 only) */
+  .state-breakdown {
+    margin-top: 18px; background: var(--card); border: 1.5px solid var(--line); padding: 14px;
+  }
+  .state-breakdown h3 {
+    margin: 0 0 12px; font-size: 13px; font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft);
+  }
+  .sb-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 6px 14px;
+  }
+  .sb-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    padding: 3px 0; border-bottom: 1px dotted #ddd;
+  }
+  .sb-row .sb-abbr { font-weight: 600; color: var(--ink); }
+  .sb-row .sb-count { color: var(--ink-soft); }
+  .sb-row.complete { background: var(--good-soft); padding: 3px 6px; border-bottom-color: var(--good); }
+  .sb-row.complete .sb-abbr,
+  .sb-row.complete .sb-count { color: var(--good); }
+  .sb-row.partial .sb-count { color: var(--ink); font-weight: 600; }
+
   /* Loading */
   .loading { text-align: center; padding: 40px; color: var(--ink-soft); font-family: 'JetBrains Mono', monospace; font-size: 13px; }
 
@@ -645,6 +669,9 @@ async function startCityQuiz({ title, items, kind, withStateGrid }) {
         idx: i, name: `${c[0]}, ${c[1]}`, pop: c[2]
       })), kind === 'sc200' ? 'SC Cities by Population (2024 ACS)' : 'US Cities by Population (2024 Est.)');
     }
+    if (kind === 'top200') {
+      renderStateBreakdown(items);
+    }
     wireInputs();
     startTimer();
     updateStats();
@@ -747,6 +774,59 @@ function renderRankTable(kind, entries, title) {
     colsEl.appendChild(colEl);
   });
   main.appendChild(wrap);
+}
+
+/* Build a state breakdown table: shows "AL 2/5" per state, sorted by total city count desc. */
+function renderStateBreakdown(items) {
+  const totals = new Map();
+  items.forEach((c, i) => {
+    const st = c[1];
+    if (!totals.has(st)) totals.set(st, { total: 0, indices: [] });
+    totals.get(st).total++;
+    totals.get(st).indices.push(i);
+  });
+
+  const sorted = [...totals.entries()].sort((a, b) => {
+    if (b[1].total !== a[1].total) return b[1].total - a[1].total;
+    return a[0].localeCompare(b[0]);
+  });
+
+  const main = document.getElementById('main');
+  const wrap = document.createElement('div');
+  wrap.className = 'state-breakdown';
+  wrap.id = 'state-breakdown';
+  wrap.innerHTML = `<h3>Cities by State</h3><div class="sb-grid" id="sb-grid"></div>`;
+  const grid = wrap.querySelector('#sb-grid');
+  sorted.forEach(([st, info]) => {
+    const row = document.createElement('div');
+    row.className = 'sb-row';
+    row.dataset.state = st;
+    row.dataset.total = info.total;
+    row.innerHTML = `<span class="sb-abbr">${st}</span><span class="sb-count"><span class="sb-got">0</span>/${info.total}</span>`;
+    grid.appendChild(row);
+  });
+  main.appendChild(wrap);
+}
+
+/* Call after each credit to refresh the state counts. */
+function updateStateBreakdown() {
+  const grid = document.getElementById('sb-grid');
+  if (!grid) return;
+  const { items, got } = quizState;
+  const counts = new Map();
+  got.forEach(i => {
+    const st = items[i][1];
+    counts.set(st, (counts.get(st) || 0) + 1);
+  });
+  grid.querySelectorAll('.sb-row').forEach(row => {
+    const st = row.dataset.state;
+    const total = parseInt(row.dataset.total, 10);
+    const gotN = counts.get(st) || 0;
+    row.querySelector('.sb-got').textContent = gotN;
+    row.classList.remove('complete', 'partial');
+    if (gotN === total) row.classList.add('complete');
+    else if (gotN > 0) row.classList.add('partial');
+  });
 }
 
 function drawUSMap(us) {
@@ -987,6 +1067,7 @@ function creditIndex(i) {
   }
   updateStats();
   updatePills(false);
+  updateStateBreakdown();
   if (quizState.got.size === quizState.items.length) {
     endQuiz('Complete! You got them all.');
   }
