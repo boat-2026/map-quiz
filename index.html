@@ -253,9 +253,13 @@
     text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft);
   }
   .sb-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    display: grid;
+    grid-template-columns: repeat(13, 1fr);
     gap: 6px 14px;
   }
+  @media (max-width: 1100px) { .sb-grid { grid-template-columns: repeat(9, 1fr); } }
+  @media (max-width: 800px)  { .sb-grid { grid-template-columns: repeat(6, 1fr); } }
+  @media (max-width: 500px)  { .sb-grid { grid-template-columns: repeat(4, 1fr); } }
   .sb-row {
     display: flex; justify-content: space-between; align-items: baseline;
     font-family: 'JetBrains Mono', monospace; font-size: 12px;
@@ -791,13 +795,27 @@ function renderStateBreakdown(items) {
     return a[0].localeCompare(b[0]);
   });
 
+  // We want the grid to read top-to-bottom, left-to-right (e.g. col 1: CA, TX, FL, AZ).
+  // CSS grid defaults to row-first insertion, so we reorder the array accordingly.
+  // Must match the CSS media query column counts below.
+  const w = window.innerWidth;
+  const cols = w > 1100 ? 13 : w > 800 ? 9 : w > 500 ? 6 : 4;
+  const rows = Math.ceil(sorted.length / cols);
+  const reordered = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const src = c * rows + r;
+      if (src < sorted.length) reordered.push(sorted[src]);
+    }
+  }
+
   const main = document.getElementById('main');
   const wrap = document.createElement('div');
   wrap.className = 'state-breakdown';
   wrap.id = 'state-breakdown';
   wrap.innerHTML = `<h3>Cities by State</h3><div class="sb-grid" id="sb-grid"></div>`;
   const grid = wrap.querySelector('#sb-grid');
-  sorted.forEach(([st, info]) => {
+  reordered.forEach(([st, info]) => {
     const row = document.createElement('div');
     row.className = 'sb-row';
     row.dataset.state = st;
