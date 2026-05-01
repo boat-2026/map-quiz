@@ -232,6 +232,11 @@
   .state { fill: var(--map-land); stroke: var(--map-line); stroke-width: 0.6; }
   .city-dot { fill: var(--good); stroke: var(--card); stroke-width: 1.2; }
   .city-dot.missed { fill: var(--bad); }
+  /* Metros: county-level fills on US map */
+  .county-metro { fill: var(--map-land); stroke: var(--map-line); stroke-width: 0.25; transition: fill .25s; }
+  .county-metro.answered { fill: var(--good); }
+  .county-metro.missed { fill: var(--bad); }
+  .state-border { fill: none; stroke: var(--ink); stroke-width: 0.7; pointer-events: none; }
 
   /* State grid (top-3 quiz) */
   .state-grid {
@@ -465,6 +470,339 @@ const DISPUTED_TERRITORIES = {
 };
 
 /* =========================================================================
+   TOP 100 US METROS — OMB Bulletin 23-01, July 2023 delineations
+   2024 Census population estimates
+   Each entry: [displayName, pop, [aliases for matching], [5-digit county FIPS]]
+   Notes:
+   - Connecticut MSAs: us-atlas data uses traditional 8 CT counties, so
+     CT MSAs here are mapped to traditional county FIPS approximations.
+   - Some smaller outlying counties may need correction.
+   ========================================================================= */
+const METROS100 = [
+  ["New York–Newark–Jersey City, NY-NJ", 19940274,
+    ["New York","NYC","Newark","Jersey City"],
+    ["36005","36047","36061","36081","36085","36059","36079","36087","36103","36119",
+     "34003","34013","34017","34019","34023","34025","34027","34029","34031","34035","34037","34039"]],
+  ["Los Angeles–Long Beach–Anaheim, CA", 12927614,
+    ["Los Angeles","LA","Long Beach","Anaheim"],
+    ["06037","06059"]],
+  ["Chicago–Naperville–Elgin, IL-IN", 9408576,
+    ["Chicago","Naperville","Elgin"],
+    ["17031","17037","17043","17063","17089","17093","17097","17111","17197",
+     "18073","18089","18127"]],
+  ["Dallas–Fort Worth–Arlington, TX", 8344032,
+    ["Dallas","Fort Worth","Arlington","DFW","Dallas Fort Worth"],
+    ["48085","48113","48121","48139","48221","48231","48251","48257","48367","48397","48439","48497"]],
+  ["Houston–Pasadena–The Woodlands, TX", 7796182,
+    ["Houston","Pasadena","The Woodlands","Houston Texas"],
+    ["48015","48039","48071","48157","48167","48201","48291","48339","48473"]],
+  ["Miami–Fort Lauderdale–West Palm Beach, FL", 6457988,
+    ["Miami","Fort Lauderdale","West Palm Beach"],
+    ["12011","12086","12099"]],
+  ["Washington–Arlington–Alexandria, DC-VA-MD-WV", 6436489,
+    ["Washington","Arlington","Alexandria","Washington DC","DC"],
+    ["11001","24009","24017","24021","24031","24033",
+     "51013","51043","51047","51059","51061","51107","51153","51157","51177","51179","51187",
+     "51510","51600","51610","51630","51683","51685",
+     "54037"]],
+  ["Atlanta–Sandy Springs–Roswell, GA", 6411149,
+    ["Atlanta","Sandy Springs","Roswell"],
+    ["13013","13015","13035","13045","13057","13063","13067","13077","13085","13089","13097",
+     "13113","13117","13121","13135","13143","13149","13151","13159","13171","13199",
+     "13211","13217","13223","13227","13231","13247","13255","13297"]],
+  ["Philadelphia–Camden–Wilmington, PA-NJ-DE-MD", 6330422,
+    ["Philadelphia","Camden","Wilmington","Philly"],
+    ["42017","42029","42045","42091","42101",
+     "34005","34007","34015","34033",
+     "10003","24015"]],
+  ["Phoenix–Mesa–Chandler, AZ", 5186958,
+    ["Phoenix","Mesa","Chandler"],
+    ["04013","04021"]],
+  ["Boston–Cambridge–Newton, MA-NH", 5025517,
+    ["Boston","Cambridge","Newton"],
+    ["25009","25017","25021","25023","25025","33015","33017"]],
+  ["Riverside–San Bernardino–Ontario, CA", 4744214,
+    ["Riverside","San Bernardino","Ontario","Inland Empire"],
+    ["06065","06071"]],
+  ["San Francisco–Oakland–Fremont, CA", 4648486,
+    ["San Francisco","Oakland","Fremont","SF"],
+    ["06001","06013","06041","06075","06081"]],
+  ["Detroit–Warren–Dearborn, MI", 4400578,
+    ["Detroit","Warren","Dearborn"],
+    ["26087","26093","26099","26125","26147","26163"]],
+  ["Seattle–Tacoma–Bellevue, WA", 4145494,
+    ["Seattle","Tacoma","Bellevue"],
+    ["53033","53053","53061"]],
+  ["Minneapolis–St. Paul–Bloomington, MN-WI", 3757952,
+    ["Minneapolis","Saint Paul","St Paul","Bloomington","Twin Cities"],
+    ["27003","27019","27025","27037","27053","27059","27079","27095","27123","27139","27141","27143","27163","27171",
+     "55093","55109"]],
+  ["Tampa–St. Petersburg–Clearwater, FL", 3424560,
+    ["Tampa","Saint Petersburg","St Petersburg","Clearwater"],
+    ["12053","12057","12101","12103"]],
+  ["San Diego–Chula Vista–Carlsbad, CA", 3298799,
+    ["San Diego","Chula Vista","Carlsbad"],
+    ["06073"]],
+  ["Denver–Aurora–Centennial, CO", 3052498,
+    ["Denver","Aurora","Centennial"],
+    ["08001","08005","08014","08019","08031","08035","08039","08047","08059","08093"]],
+  ["Orlando–Kissimmee–Sanford, FL", 2940513,
+    ["Orlando","Kissimmee","Sanford"],
+    ["12069","12095","12097","12117"]],
+  ["Charlotte–Concord–Gastonia, NC-SC", 2883370,
+    ["Charlotte","Concord","Gastonia"],
+    ["37025","37071","37097","37109","37119","37159","37179",
+     "45023","45057","45091"]],
+  ["Baltimore–Columbia–Towson, MD", 2859024,
+    ["Baltimore","Columbia","Towson"],
+    ["24003","24005","24013","24025","24027","24035","24510"]],
+  ["St. Louis, MO-IL", 2811927,
+    ["Saint Louis","St Louis"],
+    ["29071","29099","29113","29183","29189","29219","29510",
+     "17005","17013","17027","17083","17117","17119","17133","17163"]],
+  ["San Antonio–New Braunfels, TX", 2763006,
+    ["San Antonio","New Braunfels"],
+    ["48013","48019","48029","48091","48187","48259","48325","48493"]],
+  ["Austin–Round Rock–San Marcos, TX", 2550637,
+    ["Austin","Round Rock","San Marcos"],
+    ["48021","48053","48055","48209","48453","48491"]],
+  ["Portland–Vancouver–Hillsboro, OR-WA", 2537904,
+    ["Portland","Vancouver","Hillsboro"],
+    ["41005","41009","41051","41067","41071","53011","53059"]],
+  ["Sacramento–Roseville–Folsom, CA", 2463127,
+    ["Sacramento","Roseville","Folsom"],
+    ["06017","06061","06067","06113"]],
+  ["Pittsburgh, PA", 2429917,
+    ["Pittsburgh"],
+    ["42003","42005","42007","42019","42051","42125","42129"]],
+  ["Las Vegas–Henderson–North Las Vegas, NV", 2398871,
+    ["Las Vegas","Henderson","North Las Vegas","Vegas"],
+    ["32003"]],
+  ["Cincinnati, OH-KY-IN", 2302815,
+    ["Cincinnati"],
+    ["39015","39017","39025","39061","39165",
+     "21015","21023","21037","21077","21081","21117","21191",
+     "18029","18047","18115","18161"]],
+  ["Kansas City, MO-KS", 2253579,
+    ["Kansas City"],
+    ["29013","29025","29037","29047","29049","29095","29107","29165","29177",
+     "20091","20103","20121","20209"]],
+  ["Columbus, OH", 2225377,
+    ["Columbus"],
+    ["39041","39045","39049","39073","39083","39089","39097","39117","39127","39129","39159"]],
+  ["Indianapolis–Carmel–Greenwood, IN", 2174833,
+    ["Indianapolis","Carmel","Greenwood","Indy"],
+    ["18011","18013","18057","18059","18063","18081","18095","18097","18109","18133","18145"]],
+  ["Cleveland, OH", 2171877,
+    ["Cleveland"],
+    ["39035","39055","39085","39093","39103"]],
+  ["Nashville-Davidson–Murfreesboro–Franklin, TN", 2150553,
+    ["Nashville","Murfreesboro","Franklin"],
+    ["47015","47021","47037","47043","47081","47111","47119","47147","47149","47159","47165","47169","47187","47189"]],
+  ["San Jose–Sunnyvale–Santa Clara, CA", 1995484,
+    ["San Jose","Sunnyvale","Santa Clara"],
+    ["06069","06085"]],
+  ["Virginia Beach–Norfolk–Newport News, VA-NC", 1794278,
+    ["Virginia Beach","Norfolk","Newport News","Hampton Roads"],
+    ["51073","51093","51095","51115","51199","51550","51650","51700","51710","51735","51740","51800","51810","51830",
+     "37053","37091"]],
+  ["Jacksonville, FL", 1760548,
+    ["Jacksonville"],
+    ["12003","12019","12031","12089","12109"]],
+  ["Providence–Warwick, RI-MA", 1700901,
+    ["Providence","Warwick"],
+    ["44001","44003","44005","44007","44009","25005"]],
+  ["Milwaukee–Waukesha, WI", 1574452,
+    ["Milwaukee","Waukesha"],
+    ["55079","55089","55131","55133"]],
+  ["Raleigh–Cary, NC", 1562009,
+    ["Raleigh","Cary"],
+    ["37069","37101","37183"]],
+  ["Oklahoma City, OK", 1497821,
+    ["Oklahoma City","OKC"],
+    ["40017","40027","40051","40081","40083","40087","40109"]],
+  ["Louisville/Jefferson County, KY-IN", 1394234,
+    ["Louisville"],
+    ["21029","21103","21111","21185","21211","21215","21223",
+     "18019","18043","18061","18175"]],
+  ["Richmond, VA", 1370165,
+    ["Richmond"],
+    ["51007","51036","51041","51053","51075","51085","51087","51097","51101","51127","51145","51149","51183",
+     "51570","51670","51730","51760"]],
+  ["Memphis, TN-MS-AR", 1339345,
+    ["Memphis"],
+    ["47047","47157","47167",
+     "28033","28093","28137",
+     "05035"]],
+  ["Salt Lake City–Murray, UT", 1300762,
+    ["Salt Lake City","Murray","SLC"],
+    ["49035","49043","49045"]],
+  ["Birmingham, AL", 1192583,
+    ["Birmingham"],
+    ["01007","01009","01073","01115","01117","01125","01133"]],
+  ["Fresno, CA", 1189557,
+    ["Fresno"],
+    ["06019","06039"]],
+  ["Grand Rapids–Wyoming–Kentwood, MI", 1178826,
+    ["Grand Rapids","Kentwood"],
+    ["26015","26067","26081","26117","26139"]],
+  ["Hartford–West Hartford–East Hartford, CT", 1169048,
+    ["Hartford","West Hartford","East Hartford"],
+    ["09003","09007","09013"]],
+  ["Buffalo–Cheektowaga, NY", 1160172,
+    ["Buffalo","Cheektowaga"],
+    ["36029","36063"]],
+  ["Tucson, AZ", 1080149,
+    ["Tucson"],
+    ["04019"]],
+  ["Tulsa, OK", 1059803,
+    ["Tulsa"],
+    ["40037","40111","40113","40117","40131","40143","40145"]],
+  ["Rochester, NY", 1057218,
+    ["Rochester"],
+    ["36051","36055","36069","36073","36117"]],
+  ["Omaha, NE-IA", 1001010,
+    ["Omaha","Council Bluffs"],
+    ["31055","31153","31155","31177",
+     "19129","19155"]],
+  ["Urban Honolulu, HI", 998747,
+    ["Honolulu"],
+    ["15003"]],
+  ["Greenville–Anderson–Greer, SC", 996680,
+    ["Greenville","Anderson","Greer"],
+    ["45007","45045","45059","45077"]],
+  ["Bridgeport–Stamford–Danbury, CT", 972679,
+    ["Bridgeport","Stamford","Danbury"],
+    ["09001"]],
+  ["New Orleans–Metairie, LA", 966230,
+    ["New Orleans","Metairie","NOLA"],
+    ["22051","22071","22075","22087","22089","22093","22095"]],
+  ["Knoxville, TN", 957608,
+    ["Knoxville"],
+    ["47001","47009","47013","47093","47105","47129","47145","47173"]],
+  ["North Port–Bradenton–Sarasota, FL", 934956,
+    ["North Port","Bradenton","Sarasota"],
+    ["12081","12115"]],
+  ["Albuquerque, NM", 926303,
+    ["Albuquerque"],
+    ["35001","35043","35057","35061"]],
+  ["Bakersfield–Delano, CA", 922529,
+    ["Bakersfield","Delano"],
+    ["06029"]],
+  ["McAllen–Edinburg–Mission, TX", 914820,
+    ["McAllen","Edinburg"],
+    ["48215"]],
+  ["Albany–Schenectady–Troy, NY", 913485,
+    ["Albany","Schenectady","Troy"],
+    ["36001","36083","36091","36093","36095"]],
+  ["Allentown–Bethlehem–Easton, PA-NJ", 886418,
+    ["Allentown","Bethlehem","Easton"],
+    ["42077","42095","42153","34041"]],
+  ["Baton Rouge, LA", 882652,
+    ["Baton Rouge"],
+    ["22005","22007","22033","22037","22047","22063","22077","22091","22121","22125"]],
+  ["Worcester, MA", 881248,
+    ["Worcester"],
+    ["25027"]],
+  ["El Paso, TX", 879392,
+    ["El Paso"],
+    ["48141","48229"]],
+  ["Columbia, SC", 870193,
+    ["Columbia","Columbia SC","Columbia South Carolina"],
+    ["45017","45039","45055","45063","45079","45081"]],
+  ["Charleston–North Charleston, SC", 869940,
+    ["Charleston","North Charleston"],
+    ["45015","45019","45035"]],
+  ["Cape Coral–Fort Myers, FL", 860959,
+    ["Cape Coral","Fort Myers"],
+    ["12071"]],
+  ["Lakeland–Winter Haven, FL", 852878,
+    ["Lakeland","Winter Haven"],
+    ["12105"]],
+  ["Boise City, ID", 845877,
+    ["Boise","Boise City"],
+    ["16001","16015","16027","16045","16073"]],
+  ["Oxnard–Thousand Oaks–Ventura, CA", 835427,
+    ["Oxnard","Thousand Oaks","Ventura"],
+    ["06111"]],
+  ["Dayton–Kettering–Beavercreek, OH", 821740,
+    ["Dayton","Kettering","Beavercreek"],
+    ["39057","39109","39113","39135","39151"]],
+  ["Stockton–Lodi, CA", 816108,
+    ["Stockton","Lodi"],
+    ["06077"]],
+  ["Greensboro–High Point, NC", 800722,
+    ["Greensboro","High Point"],
+    ["37081","37151","37157"]],
+  ["Colorado Springs, CO", 777634,
+    ["Colorado Springs"],
+    ["08041","08119"]],
+  ["Little Rock–North Little Rock–Conway, AR", 769258,
+    ["Little Rock","North Little Rock","Conway"],
+    ["05045","05051","05053","05085","05105","05119","05125"]],
+  ["Provo–Orem–Lehi, UT", 760531,
+    ["Provo","Orem","Lehi"],
+    ["49023","49049"]],
+  ["Des Moines–West Des Moines, IA", 753913,
+    ["Des Moines","West Des Moines"],
+    ["19049","19099","19121","19153","19181"]],
+  ["Deltona–Daytona Beach–Ormond Beach, FL", 739516,
+    ["Deltona","Daytona Beach","Ormond Beach"],
+    ["12127"]],
+  ["Kiryas Joel–Poughkeepsie–Newburgh, NY", 711730,
+    ["Kiryas Joel","Poughkeepsie","Newburgh"],
+    ["36027","36071"]],
+  ["Madison, WI", 707606,
+    ["Madison"],
+    ["55021","55025","55045","55049"]],
+  ["Winston-Salem, NC", 705187,
+    ["Winston Salem","Winston-Salem"],
+    ["37033","37057","37067","37169","37197"]],
+  ["Akron, OH", 702209,
+    ["Akron"],
+    ["39133","39153"]],
+  ["Ogden, UT", 667681,
+    ["Ogden"],
+    ["49003","49011","49029","49057"]],
+  ["Wichita, KS", 661217,
+    ["Wichita"],
+    ["20015","20081","20173","20191"]],
+  ["Palm Bay–Melbourne–Titusville, FL", 658447,
+    ["Palm Bay","Melbourne","Titusville"],
+    ["12009"]],
+  ["Syracuse, NY", 655189,
+    ["Syracuse"],
+    ["36053","36067","36075"]],
+  ["Augusta-Richmond County, GA-SC", 636760,
+    ["Augusta"],
+    ["13073","13181","13189","13245","45003","45037"]],
+  ["Durham–Chapel Hill, NC", 620522,
+    ["Durham","Chapel Hill"],
+    ["37037","37063","37077","37135","37145"]],
+  ["Harrisburg–Carlisle, PA", 615361,
+    ["Harrisburg","Carlisle"],
+    ["42041","42043","42099"]],
+  ["Jackson, MS", 606178,
+    ["Jackson"],
+    ["28029","28049","28051","28089","28121","28127"]],
+  ["Fayetteville–Springdale–Rogers, AR", 605615,
+    ["Fayetteville","Springdale","Rogers"],
+    ["05007","05087","05143"]],
+  ["Spokane–Spokane Valley, WA", 604962,
+    ["Spokane","Spokane Valley"],
+    ["53051","53063","53065"]],
+  ["Toledo, OH", 601396,
+    ["Toledo"],
+    ["39051","39095","39123","39173"]],
+  ["Chattanooga, TN-GA", 588050,
+    ["Chattanooga"],
+    ["47065","47115","47153","13047","13083","13295"]],
+  ["New Haven, CT", 576718,
+    ["New Haven"],
+    ["09009"]],
+];
+
+/* =========================================================================
    NORMALIZATION & MATCHING
    ========================================================================= */
 function norm(s) {
@@ -508,6 +846,7 @@ const MODES = [
   { id: 'countries', label: 'Countries of the World' },
   { id: 'top200',    label: 'Top 200 US Cities' },
   { id: 'states3',   label: 'Top 3 per State' },
+  { id: 'metros100', label: 'Top 100 US Metros' },
   { id: 'sc200',     label: 'All SC Cities' },
 ];
 function renderNav() {
@@ -528,6 +867,7 @@ function setMode(m) {
   else if (m === 'countries') startCountries();
   else if (m === 'top200') startTop200();
   else if (m === 'states3') startStates3();
+  else if (m === 'metros100') startMetros100();
   else if (m === 'sc200') startSC200();
 }
 
@@ -557,6 +897,13 @@ function renderHome() {
           <p>The three largest cities in each of the 50 states — 150 answers total. Easy mode shows the state grid; hard mode hides it until the end.</p>
         </div>
         <span class="count">150 answers</span>
+      </div>
+      <div class="card" data-go="metros100">
+        <div>
+          <h2>Top 100 US Metros</h2>
+          <p>Name the 100 largest US metro areas. Each correct answer fills in the counties that make up that metro on the map. Different rankings than the cities quiz — DFW jumps to #4, San Jose drops to #36.</p>
+        </div>
+        <span class="count">100 answers</span>
       </div>
       <div class="card" data-go="sc200">
         <div>
@@ -736,19 +1083,28 @@ function endQuiz(message) {
     document.getElementById('state-breakdown')?.classList.remove('hidden-hard');
     document.getElementById('state-grid')?.classList.remove('hidden-hard');
     // Replay all credited answers onto the now-visible map (cities only)
-    if (quizState.kind !== 'countries') {
-      quizState.got.forEach(i => placeCityDot(quizState.items[i], false));
-    } else {
-      // Countries: re-apply fills (drawWorldMap used data-iso; classes preserved across hide/show, but re-assert)
-      quizState.got.forEach(i => {
-        const iso = COUNTRIES[i][1];
-        d3.selectAll(`path.country[data-iso="${iso}"]`).classed('answered', true);
-        for (const [terrIso, ownerIso] of Object.entries(DISPUTED_TERRITORIES)) {
-          if (ownerIso === iso) {
-            d3.selectAll(`path.country[data-iso="${terrIso}"]`).classed('answered', true);
+    if (quizState.kind === 'countries' || quizState.kind === 'metros100') {
+      // Countries/metros: SVG classes were already applied during play (even hidden)
+      // Re-assert just in case
+      if (quizState.kind === 'countries') {
+        quizState.got.forEach(i => {
+          const iso = COUNTRIES[i][1];
+          d3.selectAll(`path.country[data-iso="${iso}"]`).classed('answered', true);
+          for (const [terrIso, ownerIso] of Object.entries(DISPUTED_TERRITORIES)) {
+            if (ownerIso === iso) {
+              d3.selectAll(`path.country[data-iso="${terrIso}"]`).classed('answered', true);
+            }
           }
-        }
-      });
+        });
+      } else {
+        quizState.got.forEach(i => {
+          METROS100[i][3].forEach(f => {
+            d3.selectAll(`path.county-metro[data-fips="${f}"]`).classed('answered', true);
+          });
+        });
+      }
+    } else {
+      quizState.got.forEach(i => placeCityDot(quizState.items[i], false));
     }
     // Update side breakdown panels with current state
     updateStateBreakdown();
@@ -963,6 +1319,121 @@ async function startSC200() {
     kind: 'sc200',
     hasDifficulty: false
   });
+}
+
+/* =========================================================================
+   TOP 100 METROS QUIZ
+   ========================================================================= */
+async function startMetros100() {
+  renderQuizShell({
+    title: 'Top 100 US Metros — 2024 Est.',
+    totalCount: METROS100.length,
+    mapId: 'us-map',
+    hasDifficulty: true
+  });
+  document.getElementById('main').insertAdjacentHTML('afterbegin',
+    '<div class="loading" id="ld">Loading US county map…</div>');
+
+  // Build keyMap: each alias points to the metro index
+  const keyMap = new Map();
+  const addKey = (k, i) => {
+    if (!keyMap.has(k)) keyMap.set(k, []);
+    if (!keyMap.get(k).includes(i)) keyMap.get(k).push(i);
+  };
+  METROS100.forEach(([name, pop, aliases, fips], i) => {
+    aliases.forEach(a => addKey(norm(a), i));
+  });
+
+  quizState = {
+    kind: 'metros100',
+    items: METROS100,
+    got: new Set(),
+    keyMap,
+    elapsedMs: 0,
+    runStartedAt: 0,
+    timerId: null,
+    phase: 'idle',
+    difficulty: 'easy',
+    hasDifficulty: true
+  };
+
+  try {
+    const us = await fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json').then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+    document.getElementById('ld')?.remove();
+    drawMetrosMap(us);
+    // Rank table sorted by population
+    renderRankTable('metros', METROS100.map((m, i) => ({
+      idx: i, name: m[0].split(',')[0], pop: m[1]
+    })), 'US Metros by Population (2024 Est.)');
+    wireInputs();
+    wireStartPause();
+    wireDifficulty();
+    updateStats();
+    updatePills(false);
+  } catch (e) {
+    document.getElementById('ld').textContent = 'Failed to load US county map: ' + e.message;
+  }
+}
+
+function drawMetrosMap(us) {
+  const svg = d3.select('#us-map');
+  const W = 960, H = 600;
+  svg.attr('viewBox', `0 0 ${W} ${H}`);
+
+  const states = topojson.feature(us, us.objects.states);
+  const counties = topojson.feature(us, us.objects.counties);
+  // Filter out non-50-state-plus-DC counties (e.g., territories) by FIPS prefix
+  const valid = counties.features.filter(f => {
+    const fips = String(f.id).padStart(5, '0');
+    const state = fips.slice(0, 2);
+    // Exclude territories (60-78); include DC (11) and all 50 states
+    return parseInt(state, 10) <= 56;
+  });
+
+  const proj = d3.geoAlbersUsa().fitSize([W, H], states);
+  const path = d3.geoPath(proj);
+
+  // Counties layer
+  svg.append('g').attr('id', 'counties-layer')
+    .selectAll('path')
+    .data(valid)
+    .join('path')
+    .attr('class', 'county-metro')
+    .attr('d', path)
+    .attr('data-fips', d => String(d.id).padStart(5, '0'))
+    .on('mousemove', function(ev, d) {
+      const fips = String(d.id).padStart(5, '0');
+      // Find the metro that contains this county; show its name if it's been
+      // credited, OR if the quiz has ended (so missed metros are revealed too).
+      let label = null;
+      if (quizState && quizState.kind === 'metros100') {
+        for (let i = 0; i < METROS100.length; i++) {
+          if (METROS100[i][3].includes(fips)) {
+            if (quizState.got.has(i) || quizState.phase === 'ended') {
+              label = METROS100[i][0].split(',')[0];
+            }
+            break;
+          }
+        }
+      }
+      if (label) {
+        const tip = document.getElementById('tip');
+        tip.textContent = label;
+        tip.style.left = (ev.clientX + 12) + 'px';
+        tip.style.top  = (ev.clientY + 12) + 'px';
+        tip.classList.add('show');
+      }
+    })
+    .on('mouseout', () => document.getElementById('tip').classList.remove('show'));
+
+  // State borders on top (all state-to-state arcs + outer perimeter)
+  svg.append('path')
+    .datum(topojson.mesh(us, us.objects.states))
+    .attr('class', 'state-border')
+    .attr('d', path);
 }
 
 async function startCityQuiz({ title, items, kind, withStateGrid, hasDifficulty }) {
@@ -1494,6 +1965,12 @@ function creditIndex(i) {
       }
     }
     if (!isHardActive) flash(name, 'good');
+  } else if (quizState.kind === 'metros100') {
+    const [name, pop, aliases, fips] = item;
+    fips.forEach(f => {
+      d3.selectAll(`path.county-metro[data-fips="${f}"]`).classed('answered', true);
+    });
+    if (!isHardActive) flash(name.split(',')[0], 'good');
   } else {
     const [name, state] = item;
     // Only paint the dot in easy mode; in hard mode we'll repaint on reveal
@@ -1539,6 +2016,11 @@ function revealMissed() {
           d3.selectAll(`path.country[data-iso="${terrIso}"]`).classed('missed', true);
         }
       }
+    } else if (kind === 'metros100') {
+      const fips = item[3];
+      fips.forEach(f => {
+        d3.selectAll(`path.county-metro[data-fips="${f}"]:not(.answered)`).classed('missed', true);
+      });
     } else {
       placeCityDot(item, true);
       const slot = document.querySelector(`#state-grid .st-slot[data-item-idx="${i}"]`);
@@ -1560,6 +2042,11 @@ function updatePills(finalReveal) {
   const { items, got, kind } = quizState;
   const container = document.getElementById('pills');
   if (!container) return;
+  const nameOf = (item) => {
+    if (kind === 'countries') return item[0];
+    if (kind === 'metros100') return item[0].split(',')[0];
+    return `${item[0]}, ${item[1]}`;
+  };
   if (!finalReveal) {
     const gotArr = [...got].reverse();
     if (gotArr.length === 0) {
@@ -1567,14 +2054,12 @@ function updatePills(finalReveal) {
       return;
     }
     container.innerHTML = gotArr.map(i => {
-      const item = items[i];
-      const name = kind === 'countries' ? item[0] : `${item[0]}, ${item[1]}`;
-      return `<span class="pill got">${name}</span>`;
+      return `<span class="pill got">${nameOf(items[i])}</span>`;
     }).join('');
     return;
   }
   const html = items.map((item, i) => {
-    const name = kind === 'countries' ? item[0] : `${item[0]}, ${item[1]}`;
+    const name = nameOf(item);
     if (got.has(i)) return `<span class="pill got">${name}</span>`;
     return `<span class="pill missed">${name}</span>`;
   }).join('');
