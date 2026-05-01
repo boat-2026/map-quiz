@@ -79,6 +79,14 @@
     gap: 16px; flex-wrap: wrap; margin-bottom: 14px;
   }
   .quiz-title { font-size: 24px; margin: 0; letter-spacing: -0.01em; }
+  .quiz-title .difficulty-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 3px 8px; margin-left: 10px; vertical-align: middle;
+    border: 1.5px solid var(--line);
+  }
+  .quiz-title .difficulty-tag.easy { background: var(--good-soft); color: var(--good); border-color: var(--good); }
+  .quiz-title .difficulty-tag.hard { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
   .stats {
     display: flex; gap: 20px; font-family: 'JetBrains Mono', monospace;
     font-size: 13px; letter-spacing: 0.04em;
@@ -113,6 +121,29 @@
   .map-wrap .flash.dup  { background: #fff4d6; color: #8a6400; border-color: #8a6400; }
   .map-wrap .flash.bad  { background: var(--bad-soft);  color: var(--bad);  border-color: var(--bad); }
 
+  /* Hard mode: hide map area entirely (it's still in the DOM, just collapsed) */
+  .map-wrap.hidden-hard { display: none; }
+  /* Hard mode: input box should expand to fill the row */
+  .layout.hard-active { grid-template-columns: 1fr; }
+
+  /* Pre-start overlay on map */
+  .map-overlay {
+    position: absolute; inset: 0;
+    background: rgba(244, 239, 230, 0.92);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px;
+    text-align: center; padding: 20px;
+    z-index: 5;
+  }
+  .map-overlay .ov-title {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft);
+  }
+  .map-overlay .ov-msg {
+    font-family: 'Fraunces', Georgia, serif; font-size: 22px;
+    color: var(--ink); max-width: 420px; line-height: 1.4;
+  }
+
   /* Sidebar */
   .sidebar { display: flex; flex-direction: column; gap: 14px; }
   .input-box {
@@ -129,7 +160,30 @@
     color: var(--ink); outline: none;
   }
   .input-box input:focus { border-color: var(--accent); }
-  .input-box input:disabled { opacity: 0.5; cursor: not-allowed; }
+  .input-box input:disabled { opacity: 0.5; cursor: not-allowed; background: #ebe6dc; }
+
+  /* Difficulty toggle */
+  .difficulty {
+    display: flex; gap: 0; margin-bottom: 12px;
+    border: 1.5px solid var(--line);
+  }
+  .difficulty button {
+    flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
+    padding: 10px 8px; border: none; background: transparent; color: var(--ink);
+    cursor: pointer; text-transform: uppercase; letter-spacing: 0.04em;
+    transition: background .12s, color .12s;
+    border-right: 1.5px solid var(--line);
+  }
+  .difficulty button:last-child { border-right: none; }
+  .difficulty button:hover:not(:disabled) { background: rgba(0,0,0,0.05); }
+  .difficulty button.active { background: var(--ink); color: var(--bg); }
+  .difficulty button:disabled { cursor: not-allowed; opacity: 0.6; }
+  .difficulty-help {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-soft); margin-top: -6px; margin-bottom: 12px;
+    line-height: 1.4; min-height: 14px;
+  }
+
   .btn-row { display: flex; gap: 8px; margin-top: 12px; }
   .btn-row button {
     flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
@@ -137,11 +191,12 @@
     cursor: pointer; text-transform: uppercase; letter-spacing: 0.04em;
     transition: background .12s, color .12s;
   }
-  .btn-row button:hover { background: var(--ink); color: var(--bg); }
+  .btn-row button:hover:not(:disabled) { background: var(--ink); color: var(--bg); }
   .btn-row button.primary { background: var(--ink); color: var(--bg); }
-  .btn-row button.primary:hover { background: var(--accent); border-color: var(--accent); }
+  .btn-row button.primary:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
   .btn-row button.danger { color: var(--bad); border-color: var(--bad); }
-  .btn-row button.danger:hover { background: var(--bad); color: var(--bg); border-color: var(--bad); }
+  .btn-row button.danger:hover:not(:disabled) { background: var(--bad); color: var(--bg); border-color: var(--bad); }
+  .btn-row button:disabled { opacity: 0.4; cursor: not-allowed; }
 
   /* Progress bar */
   .prog {
@@ -154,6 +209,7 @@
     background: var(--card); border: 1.5px solid var(--line); padding: 14px;
     max-height: 320px; overflow-y: auto;
   }
+  .list-box.hidden-hard { display: none; }
   .list-box h3 {
     margin: 0 0 10px; font-size: 13px; font-family: 'JetBrains Mono', monospace;
     text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft);
@@ -210,11 +266,13 @@
   }
   .state-cell .st-slot.got .st-pop  { color: var(--good); }
   .state-cell .st-slot.missed .st-pop { color: var(--bad); }
+  .state-grid.hidden-hard { display: none; }
 
   /* Ranked tables (countries & top-200) */
   .rank-table {
     margin-top: 18px; background: var(--card); border: 1.5px solid var(--line); padding: 14px;
   }
+  .rank-table.hidden-hard { display: none; }
   .rank-table h3 {
     margin: 0 0 12px; font-size: 13px; font-family: 'JetBrains Mono', monospace;
     text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft);
@@ -248,6 +306,7 @@
   .state-breakdown {
     margin-top: 18px; background: var(--card); border: 1.5px solid var(--line); padding: 14px;
   }
+  .state-breakdown.hidden-hard { display: none; }
   .state-breakdown h3 {
     margin: 0 0 12px; font-size: 13px; font-family: 'JetBrains Mono', monospace;
     text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft);
@@ -297,6 +356,7 @@
   .continent-breakdown {
     margin-top: 18px; background: var(--card); border: 1.5px solid var(--line); padding: 14px;
   }
+  .continent-breakdown.hidden-hard { display: none; }
   .continent-breakdown h3 {
     margin: 0 0 12px; font-size: 13px; font-family: 'JetBrains Mono', monospace;
     text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft);
@@ -398,12 +458,6 @@ _OCEANIA.forEach(c => CONTINENT_OF[c] = "Oceania");
 const CONTINENT_ORDER = ["Africa", "Asia", "Europe", "North America", "South America", "Oceania"];
 
 // Disputed/dependent territories that share fill state with a sovereign country.
-// Key = ISO numeric of the territory polygon on the world-atlas map.
-// Value = ISO numeric of the sovereign country that should trigger its fill.
-// Kosovo (383) is its own sovereign in our list, but the world-atlas polygon
-// often comes through as -099 / unmatched, so we also alias Serbia (688) -> 383
-// only one-way: typing Serbia should NOT fill Kosovo, so this is just for the
-// reverse — the territory polygon. See applyDisputedFills().
 const DISPUTED_TERRITORIES = {
   "732": "504",  // Western Sahara -> Morocco
   "304": "208",  // Greenland      -> Denmark
@@ -415,15 +469,14 @@ const DISPUTED_TERRITORIES = {
    ========================================================================= */
 function norm(s) {
   return s.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // strip accents
-    .replace(/[.'’`]/g, '')                             // strip apostrophes/dots
-    .replace(/\bst\b/g, 'saint')                        // st -> saint
-    .replace(/\band\b/g, '')                            // strip "and" so "saokittsnevis" matches "saint kitts and nevis"
-    .replace(/[^a-z0-9]+/g, '')                         // strip ALL non-alphanum (incl. spaces)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[.'’`]/g, '')
+    .replace(/\bst\b/g, 'saint')
+    .replace(/\band\b/g, '')
+    .replace(/[^a-z0-9]+/g, '')
     .trim();
 }
 
-// US state abbreviation -> full name for flexible city matching ("Portland, Oregon" => match)
 const STATE_FULL = {
   AL:'alabama',AK:'alaska',AZ:'arizona',AR:'arkansas',CA:'california',CO:'colorado',CT:'connecticut',
   DE:'delaware',DC:'district of columbia',FL:'florida',GA:'georgia',HI:'hawaii',ID:'idaho',IL:'illinois',
@@ -437,10 +490,15 @@ const STATE_FULL = {
 
 /* =========================================================================
    STATE
-   ========================================================================= */
-
-  let currentMode = 'home';
-let quizState = null;  // { items, got: Set, keyMap, startMs, timerId, ended }
+   =========================================================================
+   quizState gains:
+   - phase: 'idle' | 'running' | 'paused' | 'ended'
+   - difficulty: 'easy' | 'hard'    (only meaningful for countries / top200)
+   - elapsedMs: accumulated time (so pause/resume works properly)
+   - hasDifficulty: bool — does this quiz expose easy/hard?
+*/
+let currentMode = 'home';
+let quizState = null;
 
 /* =========================================================================
    NAV
@@ -482,21 +540,21 @@ function renderHome() {
       <div class="card" data-go="countries">
         <div>
           <h2>Countries of the World</h2>
-          <p>Name all 197 sovereign countries. Correct answers fill in on the world map.</p>
+          <p>Name all 197 sovereign countries. Choose easy mode (with map fill-in) or hard mode (no map until you're done).</p>
         </div>
         <span class="count">197 answers</span>
       </div>
       <div class="card" data-go="top200">
         <div>
           <h2>Top 200 US Cities</h2>
-          <p>Name the 200 largest US cities by 2024 Census estimates. Each correct city drops a dot.</p>
+          <p>Name the 200 largest US cities by 2024 Census estimates. Easy mode drops dots on the map; hard mode hides everything until the end.</p>
         </div>
         <span class="count">200 answers</span>
       </div>
       <div class="card" data-go="states3">
         <div>
           <h2>Top 3 Cities per State</h2>
-          <p>The three largest cities in each of the 50 states. 150 answers total, all at once.</p>
+          <p>The three largest cities in each of the 50 states — 150 answers total. Easy mode shows the state grid; hard mode hides it until the end.</p>
         </div>
         <span class="count">150 answers</span>
       </div>
@@ -517,32 +575,49 @@ function renderHome() {
 /* =========================================================================
    SHARED QUIZ SHELL
    ========================================================================= */
-function renderQuizShell({ title, totalCount, mapId }) {
+function renderQuizShell({ title, totalCount, mapId, hasDifficulty }) {
+  const difficultyHTML = hasDifficulty ? `
+    <div class="difficulty" id="difficulty">
+      <button data-diff="easy" class="active">Easy</button>
+      <button data-diff="hard">Hard</button>
+    </div>
+    <div class="difficulty-help" id="difficulty-help">Map fills in as you go. Reveals missed answers at the end.</div>
+  ` : '';
+
   document.getElementById('main').innerHTML = `
     <div class="quiz-top">
-      <h2 class="quiz-title">${title}</h2>
+      <h2 class="quiz-title" id="quiz-title-el">${title}</h2>
       <div class="stats">
         <div><span class="label">Score</span><span class="val score" id="score">0 / ${totalCount}</span></div>
         <div><span class="label">Time</span><span class="val time" id="time">0:00</span></div>
       </div>
     </div>
     <div class="results-banner" id="results"></div>
-    <div class="layout">
-      <div class="map-wrap">
+    <div class="layout" id="layout">
+      <div class="map-wrap" id="map-wrap">
         <svg id="${mapId}"></svg>
         <div class="flash" id="flash"></div>
+        <div class="map-overlay" id="map-overlay">
+          <div class="ov-title">Ready</div>
+          <div class="ov-msg">Press <strong>Start</strong> to begin the timer and the quiz.</div>
+        </div>
       </div>
       <div class="sidebar">
         <div class="input-box">
+          ${difficultyHTML}
           <label for="ans">Type answer & press Enter</label>
-          <input type="text" id="ans" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="..."/>
+          <input type="text" id="ans" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="Press Start to begin..." disabled/>
           <div class="prog" style="margin-top:12px"><div class="fill" id="fill"></div></div>
           <div class="btn-row">
-            <button class="primary" id="restart">Restart</button>
-            <button class="danger" id="giveup">Give up</button>
+            <button class="primary" id="startbtn">Start</button>
+            <button id="pausebtn" disabled>Pause</button>
+          </div>
+          <div class="btn-row">
+            <button id="restart" disabled>Restart</button>
+            <button class="danger" id="giveup" disabled>Give up</button>
           </div>
         </div>
-        <div class="list-box">
+        <div class="list-box" id="list-box">
           <h3>Answers</h3>
           <div class="pills" id="pills"></div>
         </div>
@@ -550,8 +625,42 @@ function renderQuizShell({ title, totalCount, mapId }) {
     </div>
   `;
 }
+
+function updateDifficultyTag() {
+  if (!quizState || !quizState.hasDifficulty) return;
+  const titleEl = document.getElementById('quiz-title-el');
+  if (!titleEl) return;
+  // Remove any existing tag
+  const existing = titleEl.querySelector('.difficulty-tag');
+  if (existing) existing.remove();
+  // Only show tag once quiz is running/paused/ended
+  if (quizState.phase === 'idle') return;
+  const tag = document.createElement('span');
+  tag.className = 'difficulty-tag ' + quizState.difficulty;
+  tag.textContent = quizState.difficulty;
+  titleEl.appendChild(tag);
+}
+
+function applyDifficultyVisibility() {
+  if (!quizState) return;
+  const isHardActive = quizState.hasDifficulty
+    && quizState.difficulty === 'hard'
+    && (quizState.phase === 'running' || quizState.phase === 'paused');
+  // Map area
+  document.getElementById('map-wrap')?.classList.toggle('hidden-hard', isHardActive);
+  // Layout collapses to single column when map hidden
+  document.getElementById('layout')?.classList.toggle('hard-active', isHardActive);
+  // Side lists
+  document.getElementById('list-box')?.classList.toggle('hidden-hard', isHardActive);
+  document.getElementById('rank-table')?.classList.toggle('hidden-hard', isHardActive);
+  document.getElementById('continent-breakdown')?.classList.toggle('hidden-hard', isHardActive);
+  document.getElementById('state-breakdown')?.classList.toggle('hidden-hard', isHardActive);
+  document.getElementById('state-grid')?.classList.toggle('hidden-hard', isHardActive);
+}
+
 function flash(msg, kind) {
   const el = document.getElementById('flash');
+  if (!el) return;
   el.textContent = msg;
   el.className = 'flash show ' + kind;
   clearTimeout(flash._t);
@@ -562,28 +671,98 @@ function updateStats() {
   document.getElementById('score').textContent = `${got.size} / ${items.length}`;
   document.getElementById('fill').style.width = (100 * got.size / items.length) + '%';
 }
-function startTimer() {
-  quizState.startMs = Date.now();
-  quizState.timerId = setInterval(() => {
-    if (quizState.ended) return;
-    const s = Math.floor((Date.now() - quizState.startMs) / 1000);
-    const m = Math.floor(s / 60), ss = String(s % 60).padStart(2, '0');
-    document.getElementById('time').textContent = `${m}:${ss}`;
-  }, 500);
+
+/* Timer that supports pause/resume via accumulated elapsedMs */
+function tickTime() {
+  if (!quizState || quizState.phase !== 'running') return;
+  const now = Date.now();
+  const ms = quizState.elapsedMs + (now - quizState.runStartedAt);
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60), ss = String(s % 60).padStart(2, '0');
+  document.getElementById('time').textContent = `${m}:${ss}`;
 }
+
+function startTimer() {
+  // Called once when the quiz initially starts (Start button)
+  quizState.elapsedMs = 0;
+  quizState.runStartedAt = Date.now();
+  quizState.phase = 'running';
+  quizState.timerId = setInterval(tickTime, 500);
+  tickTime();
+}
+function pauseTimer() {
+  if (!quizState || quizState.phase !== 'running') return;
+  // Bank current run into elapsedMs
+  quizState.elapsedMs += Date.now() - quizState.runStartedAt;
+  quizState.phase = 'paused';
+}
+function resumeTimer() {
+  if (!quizState || quizState.phase !== 'paused') return;
+  quizState.runStartedAt = Date.now();
+  quizState.phase = 'running';
+}
+
 function endQuiz(message) {
-  quizState.ended = true;
+  // Bank time if currently running
+  if (quizState.phase === 'running') {
+    quizState.elapsedMs += Date.now() - quizState.runStartedAt;
+  }
+  quizState.phase = 'ended';
   clearInterval(quizState.timerId);
+
   const { got, items } = quizState;
   const pct = Math.round(100 * got.size / items.length);
-  const s = Math.floor((Date.now() - quizState.startMs) / 1000);
+  const ms = quizState.elapsedMs;
+  const s = Math.floor(ms / 1000);
   const m = Math.floor(s / 60), ss = String(s % 60).padStart(2, '0');
+  document.getElementById('time').textContent = `${m}:${ss}`;
   document.getElementById('results').innerHTML = `
     <h3>${message}</h3>
     <p><span class="big">${got.size} / ${items.length}</span> &nbsp; (${pct}%) &nbsp; in ${m}:${ss}</p>
   `;
   document.getElementById('results').classList.add('show');
   document.getElementById('ans').disabled = true;
+  document.getElementById('pausebtn').disabled = true;
+  document.getElementById('giveup').disabled = true;
+  document.getElementById('startbtn').disabled = true;
+
+  // For hard mode: now reveal the map and side panels
+  if (quizState.hasDifficulty && quizState.difficulty === 'hard') {
+    document.getElementById('map-wrap')?.classList.remove('hidden-hard');
+    document.getElementById('layout')?.classList.remove('hard-active');
+    document.getElementById('list-box')?.classList.remove('hidden-hard');
+    document.getElementById('rank-table')?.classList.remove('hidden-hard');
+    document.getElementById('continent-breakdown')?.classList.remove('hidden-hard');
+    document.getElementById('state-breakdown')?.classList.remove('hidden-hard');
+    document.getElementById('state-grid')?.classList.remove('hidden-hard');
+    // Replay all credited answers onto the now-visible map (cities only)
+    if (quizState.kind !== 'countries') {
+      quizState.got.forEach(i => placeCityDot(quizState.items[i], false));
+    } else {
+      // Countries: re-apply fills (drawWorldMap used data-iso; classes preserved across hide/show, but re-assert)
+      quizState.got.forEach(i => {
+        const iso = COUNTRIES[i][1];
+        d3.selectAll(`path.country[data-iso="${iso}"]`).classed('answered', true);
+        for (const [terrIso, ownerIso] of Object.entries(DISPUTED_TERRITORIES)) {
+          if (ownerIso === iso) {
+            d3.selectAll(`path.country[data-iso="${terrIso}"]`).classed('answered', true);
+          }
+        }
+      });
+    }
+    // Update side breakdown panels with current state
+    updateStateBreakdown();
+    updateContinentBreakdown();
+    // Reveal the rank-table rows that were credited (rows have been silently held)
+    quizState.got.forEach(i => {
+      const row = document.querySelector(`#rank-table .rank-row[data-item-idx="${i}"]`);
+      if (row) {
+        row.classList.add('got');
+        row.querySelector('.r-name').textContent = row.dataset.name;
+      }
+    });
+  }
+
   revealMissed();
   updatePills(true);
 }
@@ -595,12 +774,12 @@ async function startCountries() {
   renderQuizShell({
     title: 'Countries of the World',
     totalCount: COUNTRIES.length,
-    mapId: 'world-map'
+    mapId: 'world-map',
+    hasDifficulty: true
   });
   document.getElementById('main').insertAdjacentHTML('afterbegin',
     '<div class="loading" id="ld">Loading world map…</div>');
 
-  // Build keyMap: normalized-name -> [country index] (array for uniform handling)
   const keyMap = new Map();
   const addKey = (k, i) => {
     if (!keyMap.has(k)) keyMap.set(k, []);
@@ -616,13 +795,15 @@ async function startCountries() {
     items: COUNTRIES,
     got: new Set(),
     keyMap,
-    startMs: 0,
+    elapsedMs: 0,
+    runStartedAt: 0,
     timerId: null,
-    ended: false,
+    phase: 'idle',
+    difficulty: 'easy',
+    hasDifficulty: true,
     isoToIdx: new Map(COUNTRIES.map(([n,iso],i) => [iso, i])),
   };
 
-  // Fetch world topojson
   try {
     const world = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json').then(r => {
       if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -630,7 +811,6 @@ async function startCountries() {
     });
     document.getElementById('ld')?.remove();
     drawWorldMap(world);
-    // Build inset row inside the map-wrap (just below the world SVG)
     const mapWrap = document.querySelector('.map-wrap');
     const insetsRow = document.createElement('div');
     insetsRow.className = 'insets';
@@ -644,10 +824,10 @@ async function startCountries() {
       idx: i, name: c[0], pop: c[3] || 0
     })), 'Countries by Population (2023)');
     wireInputs();
-    startTimer();
+    wireStartPause();
+    wireDifficulty();
     updateStats();
     updatePills(false);
-    document.getElementById('ans').focus();
   } catch (e) {
     console.error('Countries quiz load error:', e);
     const ld = document.getElementById('ld');
@@ -682,30 +862,13 @@ function drawWorldMap(world) {
     })
     .on('mouseout', () => document.getElementById('tip').classList.remove('show'));
 
-  // Stash for inset drawing
   quizState.worldFeatures = countries;
 }
 
-/* Zoom-in insets for tightly clustered island regions.
-   Each inset has a center lat/lon and a zoom scale. Country paths are drawn
-   for the WHOLE world but clipped via SVG clipPath to the inset viewport. */
 const INSET_DEFS = [
-  {
-    id: 'inset-europe', label: 'Europe',
-    center: [12, 52],     // [lon, lat]
-    scale: 340            // slightly zoomed out to capture Greece + Balkans
-  },
-  {
-    id: 'inset-caribbean', label: 'Caribbean',
-    center: [-69, 17],    // shifted east to capture Lesser Antilles
-    scale: 900
-  },
-  {
-    id: 'inset-pacific', label: 'Pacific',
-    center: [0, -8],      // when rotated by -180, lon 0 = real lon 180 (antimeridian)
-    scale: 320,           // zoomed out to capture Palau (west) through Samoa/Tonga (east)
-    rotate: [-180, 0]
-  }
+  { id: 'inset-europe', label: 'Europe', center: [12, 52], scale: 340 },
+  { id: 'inset-caribbean', label: 'Caribbean', center: [-69, 17], scale: 900 },
+  { id: 'inset-pacific', label: 'Pacific', center: [0, -8], scale: 320, rotate: [-180, 0] }
 ];
 
 function drawInsets() {
@@ -719,19 +882,16 @@ function drawInsets() {
     svg.attr('viewBox', `0 0 ${W} ${H}`)
        .attr('preserveAspectRatio', 'xMidYMid slice');
 
-    // SVG clipPath crops the rendered map to the inset viewport
     const clipId = def.id + '-clip';
     svg.append('defs').append('clipPath')
       .attr('id', clipId)
       .append('rect')
       .attr('x', 0).attr('y', 0).attr('width', W).attr('height', H);
 
-    // Background ocean
     svg.append('rect')
       .attr('width', W).attr('height', H)
       .attr('fill', 'var(--bg)');
 
-    // Build projection: center on the region, then translate so center sits in middle of viewport
     const proj = d3.geoMercator()
       .scale(def.scale)
       .translate([W / 2, H / 2]);
@@ -740,7 +900,6 @@ function drawInsets() {
 
     const path = d3.geoPath(proj);
 
-    // Map group — clipped to viewport
     const mapG = svg.append('g').attr('clip-path', `url(#${clipId})`);
 
     mapG.selectAll('path.country')
@@ -762,7 +921,6 @@ function drawInsets() {
       })
       .on('mouseout', () => document.getElementById('tip').classList.remove('show'));
 
-    // Re-apply current fill state in case answers were already credited
     quizState.got.forEach(i => {
       const iso = COUNTRIES[i][1];
       svg.selectAll(`path.country[data-iso="${iso}"]`).classed('answered', true);
@@ -782,45 +940,46 @@ async function startTop200() {
   await startCityQuiz({
     title: 'Top 200 US Cities — 2024 Est.',
     items: TOP200,
-    kind: 'top200'
+    kind: 'top200',
+    hasDifficulty: true
   });
 }
 async function startStates3() {
-  // Flatten top3 into single list, but preserve state grouping for the grid
   const items = [];
-  const stateOrder = Object.keys(TOP3).sort(); // alphabetical by abbrev
+  const stateOrder = Object.keys(TOP3).sort();
   stateOrder.forEach(st => TOP3[st].forEach(c => items.push(c)));
   await startCityQuiz({
     title: 'Top 3 Cities per State',
     items,
     kind: 'states3',
-    withStateGrid: true
+    withStateGrid: true,
+    hasDifficulty: true
   });
 }
 async function startSC200() {
   await startCityQuiz({
     title: 'Top 200 SC Cities — 2024 ACS',
     items: SC200,
-    kind: 'sc200'
+    kind: 'sc200',
+    hasDifficulty: false
   });
 }
 
-async function startCityQuiz({ title, items, kind, withStateGrid }) {
+async function startCityQuiz({ title, items, kind, withStateGrid, hasDifficulty }) {
   renderQuizShell({
     title,
     totalCount: items.length,
-    mapId: 'us-map'
+    mapId: 'us-map',
+    hasDifficulty: !!hasDifficulty
   });
   document.getElementById('main').insertAdjacentHTML('afterbegin',
     '<div class="loading" id="ld">Loading US map…</div>');
 
-  // Build matching map: norm(name) -> list of indices (multiple cities share names, e.g., Portland)
   const keyMap = new Map();
   items.forEach((c, i) => {
     const [name, state] = c;
     const stateLower = state.toLowerCase();
     const stateFull = STATE_FULL[state] || stateLower;
-    // For entries like "Springdale (Lexington)", also accept the bare name "Springdale"
     const bareName = name.replace(/\s*\([^)]*\)\s*/g, '').trim();
     const nameVariants = bareName && bareName !== name ? [name, bareName] : [name];
     const keys = [];
@@ -841,9 +1000,12 @@ async function startCityQuiz({ title, items, kind, withStateGrid }) {
     items,
     got: new Set(),
     keyMap,
-    startMs: 0,
+    elapsedMs: 0,
+    runStartedAt: 0,
     timerId: null,
-    ended: false
+    phase: 'idle',
+    difficulty: 'easy',
+    hasDifficulty: !!hasDifficulty
   };
 
   try {
@@ -864,33 +1026,21 @@ async function startCityQuiz({ title, items, kind, withStateGrid }) {
       })), kind === 'sc200' ? 'Every SC City & Town by Population' : 'US Cities by Population (2024 Est.)');
     }
     wireInputs();
-    startTimer();
+    wireStartPause();
+    if (hasDifficulty) wireDifficulty();
     updateStats();
     updatePills(false);
-    document.getElementById('ans').focus();
   } catch (e) {
     document.getElementById('ld').textContent = 'Failed to load map: ' + e.message;
   }
 }
 
 function renderStateGrid() {
-  // Build grid with a slot for each item in TOP3, keyed by item index in the flat list.
   const main = document.getElementById('main');
   const grid = document.createElement('div');
   grid.className = 'state-grid';
   grid.id = 'state-grid';
 
-  let idx = 0;
-  const stateOrder = Object.keys(TOP3).sort();
-  // Map state abbrev -> full name for the header
-  const stateOrderedByFullName = stateOrder
-    .map(st => [st, STATE_FULL[st] || st])
-    .sort((a, b) => a[1].localeCompare(b[1]));
-
-  // Re-order by full-state-name alphabetical for the grid display
-  // (we need the indices to be correct to match the flat items list which
-  //  was built in TOP3-abbrev-sorted order — so we need a lookup)
-  // Actually, simpler: iterate the flat items list and bucket by state.
   const byState = new Map();
   quizState.items.forEach((item, i) => {
     const st = item[1];
@@ -898,7 +1048,6 @@ function renderStateGrid() {
     byState.get(st).push({ item, i });
   });
 
-  // Sort state keys by full name
   const sortedStates = [...byState.keys()].sort((a, b) =>
     (STATE_FULL[a] || a).localeCompare(STATE_FULL[b] || b));
 
@@ -910,7 +1059,7 @@ function renderStateGrid() {
       const slot = document.createElement('div');
       slot.className = 'st-slot';
       slot.dataset.itemIdx = i;
-      slot.textContent = '\u00a0'; // nbsp
+      slot.textContent = '\u00a0';
       cell.appendChild(slot);
     });
     grid.appendChild(cell);
@@ -932,7 +1081,6 @@ function fmtPop(n) {
 }
 
 function renderRankTable(kind, entries, title) {
-  // Sort descending by pop; split into 3 roughly-equal columns
   const sorted = entries.slice().sort((a, b) => (b.pop || 0) - (a.pop || 0));
   const ranked = sorted.map((e, rank) => ({...e, rank: rank + 1}));
   const colCount = 3;
@@ -967,7 +1115,6 @@ function renderRankTable(kind, entries, title) {
   main.appendChild(wrap);
 }
 
-/* Continent breakdown for the Countries quiz: 3x2 grid showing got/total per continent */
 function renderContinentBreakdown() {
   const totals = {};
   CONTINENT_ORDER.forEach(c => totals[c] = { total: 0, indices: [] });
@@ -1022,7 +1169,6 @@ function updateContinentBreakdown() {
   });
 }
 
-/* Build a state breakdown table: shows "AL 2/5" per state, sorted by total city count desc. */
 function renderStateBreakdown(items) {
   const totals = new Map();
   items.forEach((c, i) => {
@@ -1054,7 +1200,6 @@ function renderStateBreakdown(items) {
   main.appendChild(wrap);
 }
 
-/* Call after each credit to refresh the state counts. */
 function updateStateBreakdown() {
   const grid = document.getElementById('sb-grid');
   if (!grid) return;
@@ -1090,10 +1235,7 @@ function drawUSMap(us) {
     .attr('class', 'state')
     .attr('d', path);
 
-  // dots layer (added on correct guess)
   svg.append('g').attr('id', 'dots');
-
-  // store projection for dot placement
   quizState.proj = proj;
 }
 
@@ -1102,9 +1244,6 @@ function drawSCMap(us) {
   const W = 960, H = 640;
   svg.attr('viewBox', `0 0 ${W} ${H}`);
 
-  // counties-10m.json has less-simplified geometry than states-10m.json,
-  // so filtering to SC counties gives us a higher-fidelity state outline
-  // (coastline, river borders, etc.) plus interior county lines for free.
   const allCounties = topojson.feature(us, us.objects.counties);
   const scCounties = {
     type: 'FeatureCollection',
@@ -1115,14 +1254,11 @@ function drawSCMap(us) {
     return;
   }
 
-  // State outline = merged county boundaries (preserves county-level detail)
   const scStateMesh = topojson.merge(
     us,
     us.objects.counties.geometries.filter(g => String(g.id).startsWith('45'))
   );
 
-  // Interior county borders only (mesh where a !== b) — so the outer state
-  // border can be drawn once, bolder, without double-stroking.
   const scInteriorMesh = topojson.mesh(
     us,
     us.objects.counties,
@@ -1132,14 +1268,12 @@ function drawSCMap(us) {
   const proj = d3.geoMercator().fitExtent([[16, 16], [W - 16, H - 16]], scStateMesh);
   const path = d3.geoPath(proj);
 
-  // Layer 1: filled state background (single merged polygon)
   svg.append('path')
     .datum(scStateMesh)
     .attr('class', 'state')
     .attr('d', path)
     .attr('stroke', 'none');
 
-  // Layer 2: thin interior county lines
   svg.append('path')
     .datum(scInteriorMesh)
     .attr('fill', 'none')
@@ -1148,7 +1282,6 @@ function drawSCMap(us) {
     .attr('stroke-linejoin', 'round')
     .attr('d', path);
 
-  // Layer 3: bold state outline on top (covers the inner lines at edges)
   svg.append('path')
     .datum(scStateMesh)
     .attr('fill', 'none')
@@ -1157,7 +1290,6 @@ function drawSCMap(us) {
     .attr('stroke-linejoin', 'round')
     .attr('d', path);
 
-  // Hover layer: invisible per-county paths for tooltips
   svg.append('g')
     .attr('id', 'sc-county-hover')
     .selectAll('path')
@@ -1183,7 +1315,7 @@ function drawSCMap(us) {
 function placeCityDot(cityArr, missed=false) {
   const [name, state, pop, lat, lon] = cityArr;
   const pt = quizState.proj([lon, lat]);
-  if (!pt) return;  // e.g. if out of albersUsa range
+  if (!pt) return;
   const svg = d3.select('#us-map #dots');
   const r = missed ? 2.6 : (pop > 1000000 ? 6 : pop > 500000 ? 4.8 : pop > 200000 ? 3.8 : 3);
   const dot = svg.append('circle')
@@ -1194,7 +1326,6 @@ function placeCityDot(cityArr, missed=false) {
   if (!missed) {
     dot.transition().duration(250).attr('r', r);
   }
-  // Tooltip on hover
   dot.on('mousemove', (ev) => {
     const tip = document.getElementById('tip');
     tip.textContent = `${name}, ${state} — ${pop.toLocaleString()}`;
@@ -1205,20 +1336,18 @@ function placeCityDot(cityArr, missed=false) {
 }
 
 /* =========================================================================
-   INPUT HANDLING
+   INPUT HANDLING + START / PAUSE / DIFFICULTY
    ========================================================================= */
 function wireInputs() {
   const ans = document.getElementById('ans');
   ans.oninput = () => {
+    if (!quizState || quizState.phase !== 'running') return;
     const raw = ans.value;
     const tryText = norm(raw);
     if (!tryText) return;
     const hits = tryMatch(tryText);
-    if (hits === null) return; // no match yet, keep typing
+    if (hits === null) return;
 
-    // If current text is a PREFIX of some longer valid answer, don't accept yet —
-    // wait briefly in case user is still typing (e.g. "Jackson" vs "Jacksonville").
-    // Press Enter to override the wait.
     if (isPrefixOfOtherKey(tryText)) {
       clearTimeout(wireInputs._pt);
       wireInputs._pt = setTimeout(() => {
@@ -1230,9 +1359,9 @@ function wireInputs() {
     clearTimeout(wireInputs._pt);
     commitHits(hits, raw);
   };
-  // Enter = commit immediately even if prefix-wait is pending
   ans.onkeydown = (e) => {
     if (e.key === 'Enter') {
+      if (!quizState || quizState.phase !== 'running') return;
       clearTimeout(wireInputs._pt);
       const tryText = norm(ans.value);
       if (!tryText) return;
@@ -1240,25 +1369,93 @@ function wireInputs() {
       if (hits && hits.length > 0) {
         commitHits(hits, ans.value);
       } else if (hits === null) {
-        // Unknown input — silent, or give subtle hint
         flash('Not on the list', 'bad');
       } else {
-        // All matches already got — silently clear
         ans.value = '';
       }
     }
   };
   document.getElementById('restart').onclick = () => setMode(currentMode);
   document.getElementById('giveup').onclick = () => {
-    if (quizState.ended) return;
+    if (!quizState || quizState.phase === 'ended' || quizState.phase === 'idle') return;
     if (confirm('End the quiz and reveal missed answers?')) endQuiz('Gave up.');
   };
+}
+
+function wireStartPause() {
+  const startBtn = document.getElementById('startbtn');
+  const pauseBtn = document.getElementById('pausebtn');
+  const ans = document.getElementById('ans');
+  const overlay = document.getElementById('map-overlay');
+
+  startBtn.onclick = () => {
+    if (!quizState) return;
+    if (quizState.phase === 'idle') {
+      // First-time start
+      startTimer();
+      ans.disabled = false;
+      ans.placeholder = '...';
+      ans.focus();
+      overlay.style.display = 'none';
+      pauseBtn.disabled = false;
+      document.getElementById('giveup').disabled = false;
+      document.getElementById('restart').disabled = false;
+      startBtn.disabled = true;
+      // Lock the difficulty toggle now
+      document.querySelectorAll('#difficulty button').forEach(b => b.disabled = true);
+      updateDifficultyTag();
+      applyDifficultyVisibility();
+    }
+  };
+
+  pauseBtn.onclick = () => {
+    if (!quizState) return;
+    if (quizState.phase === 'running') {
+      pauseTimer();
+      ans.disabled = true;
+      pauseBtn.textContent = 'Resume';
+      // Show overlay (only meaningful in easy mode where map is visible)
+      if (!(quizState.hasDifficulty && quizState.difficulty === 'hard')) {
+        overlay.style.display = 'flex';
+        overlay.querySelector('.ov-title').textContent = 'Paused';
+        overlay.querySelector('.ov-msg').innerHTML = 'Press <strong>Resume</strong> to continue.';
+      }
+    } else if (quizState.phase === 'paused') {
+      resumeTimer();
+      ans.disabled = false;
+      ans.focus();
+      pauseBtn.textContent = 'Pause';
+      overlay.style.display = 'none';
+    }
+  };
+}
+
+function wireDifficulty() {
+  const cont = document.getElementById('difficulty');
+  const help = document.getElementById('difficulty-help');
+  if (!cont) return;
+  const setHelp = (diff) => {
+    if (diff === 'easy') {
+      help.textContent = 'Map fills in as you go. Reveals missed answers at the end.';
+    } else {
+      help.textContent = 'Map and answer lists hidden until quiz ends. Score counter only.';
+    }
+  };
+  setHelp('easy');
+  cont.querySelectorAll('button').forEach(b => {
+    b.onclick = () => {
+      if (!quizState || quizState.phase !== 'idle') return; // can't change mid-quiz
+      const diff = b.dataset.diff;
+      cont.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+      quizState.difficulty = diff;
+      setHelp(diff);
+    };
+  });
 }
 
 function commitHits(hits, raw) {
   const ans = document.getElementById('ans');
   if (hits.length === 0) {
-    // Already got — silently clear, no flash (per user preference)
     ans.value = '';
     return;
   }
@@ -1266,7 +1463,6 @@ function commitHits(hits, raw) {
   hits.forEach(i => creditIndex(i));
 }
 
-// True if normText is a strict prefix of some other key in keyMap
 function isPrefixOfOtherKey(normText) {
   for (const k of quizState.keyMap.keys()) {
     if (k !== normText && k.startsWith(normText)) return true;
@@ -1275,8 +1471,6 @@ function isPrefixOfOtherKey(normText) {
 }
 
 function tryMatch(normText) {
-  // Returns null if no match found, [] if all matches already credited, or list of newly-credited indices.
-  // Ambiguous names (e.g. "Aurora" matches both CO and IL) credit ALL ungot matches at once.
   const idxs = quizState.keyMap.get(normText);
   if (!idxs) return null;
   const newly = [];
@@ -1289,21 +1483,24 @@ function tryMatch(normText) {
 function creditIndex(i) {
   quizState.got.add(i);
   const item = quizState.items[i];
+  const isHardActive = quizState.hasDifficulty && quizState.difficulty === 'hard';
   if (quizState.kind === 'countries') {
     const [name, iso] = item;
+    // Always update the SVG class — even if hidden — so it's there at reveal
     d3.selectAll(`path.country[data-iso="${iso}"]`).classed('answered', true);
-    // Also fill any disputed territories tied to this sovereign
     for (const [terrIso, ownerIso] of Object.entries(DISPUTED_TERRITORIES)) {
       if (ownerIso === iso) {
         d3.selectAll(`path.country[data-iso="${terrIso}"]`).classed('answered', true);
       }
     }
-    flash(name, 'good');
+    if (!isHardActive) flash(name, 'good');
   } else {
     const [name, state] = item;
-    placeCityDot(item, false);
-    flash(`${name}, ${state}`, 'good');
-    // Update state grid slot if present
+    // Only paint the dot in easy mode; in hard mode we'll repaint on reveal
+    if (!isHardActive) {
+      placeCityDot(item, false);
+      flash(`${name}, ${state}`, 'good');
+    }
     const slot = document.querySelector(`#state-grid .st-slot[data-item-idx="${i}"]`);
     if (slot) {
       const pop = item[2];
@@ -1311,16 +1508,20 @@ function creditIndex(i) {
       slot.classList.add('got');
     }
   }
-  // Rank table row reveal
-  const row = document.querySelector(`#rank-table .rank-row[data-item-idx="${i}"]`);
-  if (row) {
-    row.classList.add('got');
-    row.querySelector('.r-name').textContent = row.dataset.name;
+  // Rank table row reveal — only in easy mode (in hard, rows hidden until end)
+  if (!isHardActive) {
+    const row = document.querySelector(`#rank-table .rank-row[data-item-idx="${i}"]`);
+    if (row) {
+      row.classList.add('got');
+      row.querySelector('.r-name').textContent = row.dataset.name;
+    }
   }
   updateStats();
-  updatePills(false);
-  updateStateBreakdown();
-  updateContinentBreakdown();
+  if (!isHardActive) {
+    updatePills(false);
+    updateStateBreakdown();
+    updateContinentBreakdown();
+  }
   if (quizState.got.size === quizState.items.length) {
     endQuiz('Complete! You got them all.');
   }
@@ -1333,7 +1534,6 @@ function revealMissed() {
     if (kind === 'countries') {
       const iso = item[1];
       d3.selectAll(`path.country[data-iso="${iso}"]`).classed('missed', true);
-      // Also mark any disputed territories tied to this sovereign
       for (const [terrIso, ownerIso] of Object.entries(DISPUTED_TERRITORIES)) {
         if (ownerIso === iso) {
           d3.selectAll(`path.country[data-iso="${terrIso}"]`).classed('missed', true);
@@ -1341,7 +1541,6 @@ function revealMissed() {
       }
     } else {
       placeCityDot(item, true);
-      // Fill in grid slot as missed
       const slot = document.querySelector(`#state-grid .st-slot[data-item-idx="${i}"]`);
       if (slot) {
         const pop = item[2];
@@ -1349,7 +1548,6 @@ function revealMissed() {
         slot.classList.add('missed');
       }
     }
-    // Rank table row missed reveal
     const row = document.querySelector(`#rank-table .rank-row[data-item-idx="${i}"]`);
     if (row) {
       row.classList.add('missed');
@@ -1361,8 +1559,8 @@ function revealMissed() {
 function updatePills(finalReveal) {
   const { items, got, kind } = quizState;
   const container = document.getElementById('pills');
+  if (!container) return;
   if (!finalReveal) {
-    // During play: show only gotten items, most recent first
     const gotArr = [...got].reverse();
     if (gotArr.length === 0) {
       container.innerHTML = '<span style="color:var(--ink-soft);font-family:JetBrains Mono,monospace;font-size:12px">Correct answers appear here…</span>';
@@ -1375,7 +1573,6 @@ function updatePills(finalReveal) {
     }).join('');
     return;
   }
-  // Final reveal: all items, grouped got first then missed
   const html = items.map((item, i) => {
     const name = kind === 'countries' ? item[0] : `${item[0]}, ${item[1]}`;
     if (got.has(i)) return `<span class="pill got">${name}</span>`;
