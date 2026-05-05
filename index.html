@@ -443,6 +443,7 @@
 <script src="data/countries.js"></script>
 <script src="data/metros100.js"></script>
 <script src="data/capitals.js"></script>
+<script src="data/lowcountry.js"></script>
 
 <script>
 /* =========================================================================
@@ -455,6 +456,7 @@ const COUNTRIES = window.COUNTRIES;
 const CONTINENT_OF = window.CONTINENT_OF;
 const CONTINENT_ORDER = window.CONTINENT_ORDER;
 const METROS100 = window.METROS100;
+const LOWCOUNTRY = window.LOWCOUNTRY;
 // CAPITALS is bound below (after the pre-CAPITALS logic that already references window.CAPITALS).
 
 // Disputed/dependent territories that share fill state with a sovereign country.
@@ -521,6 +523,7 @@ const MODES = [
   { id: 'states3',   label: 'Top 3 per State' },
   { id: 'metros100', label: 'Top 100 US Metros' },
   { id: 'sc200',     label: 'All SC Cities' },
+  { id: 'lowcountry',label: 'Lowcountry 4-County' },
 ];
 function renderNav() {
   const nav = document.getElementById('nav');
@@ -543,6 +546,7 @@ function setMode(m) {
   else if (m === 'states3') startStates3();
   else if (m === 'metros100') startMetros100();
   else if (m === 'sc200') startSC200();
+  else if (m === 'lowcountry') startLowcountry();
 }
 
 /* =========================================================================
@@ -592,6 +596,13 @@ function renderHome() {
           <p>Name every incorporated city/town in South Carolina, plus major CDPs — 374 places, all the way down to towns with 38 residents.</p>
         </div>
         <span class="count">374 answers</span>
+      </div>
+      <div class="card" data-go="lowcountry">
+        <div>
+          <h2>Lowcountry 4-County</h2>
+          <p>Every incorporated place and Census CDP in Charleston, Berkeley, Dorchester, and Colleton counties — Folly Beach down to Islandton (pop. 58).</p>
+        </div>
+        <span class="count">44 answers</span>
       </div>
     </div>
   `;
@@ -998,6 +1009,14 @@ async function startSC200() {
     title: 'Top 200 SC Cities — 2024 ACS',
     items: SC200,
     kind: 'sc200',
+    hasDifficulty: false
+  });
+}
+async function startLowcountry() {
+  await startCityQuiz({
+    title: 'Lowcountry 4-County',
+    items: LOWCOUNTRY,
+    kind: 'lowcountry',
     hasDifficulty: false
   });
 }
@@ -1411,21 +1430,30 @@ async function startCityQuiz({ title, items, kind, withStateGrid, hasDifficulty 
   };
 
   try {
-    const atlasUrl = (kind === 'sc200')
+    const atlasUrl = (kind === 'sc200' || kind === 'lowcountry')
       ? 'https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json'
       : 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
     const us = await fetch(atlasUrl).then(r=>r.json());
     document.getElementById('ld')?.remove();
     if (kind === 'sc200') drawSCMap(us);
+    else if (kind === 'lowcountry') drawLowcountryMap(us);
     else drawUSMap(us);
     if (withStateGrid) renderStateGrid();
     if (kind === 'top200') {
       renderStateBreakdown(items);
     }
+    if (kind === 'lowcountry') {
+      renderCountyBreakdown(items);
+    }
     if (kind === 'top200' || kind === 'sc200') {
       renderRankTable('cities', items.map((c, i) => ({
         idx: i, name: `${c[0]}, ${c[1]}`, pop: c[2]
       })), kind === 'sc200' ? 'Every SC City & Town by Population' : 'US Cities by Population (2024 Est.)');
+    }
+    if (kind === 'lowcountry') {
+      renderRankTable('cities', items.map((c, i) => ({
+        idx: i, name: c[0], pop: c[2]
+      })), 'Lowcountry Places by Population');
     }
     wireInputs();
     wireStartPause();
@@ -1605,10 +1633,11 @@ function renderStateBreakdown(items) {
 function updateStateBreakdown() {
   const grid = document.getElementById('sb-grid');
   if (!grid) return;
-  const { items, got } = quizState;
+  const { items, got, kind } = quizState;
   const counts = new Map();
   got.forEach(i => {
-    const st = items[i][1];
+    // Lowcountry items use a compound county string; use only the primary.
+    const st = (kind === 'lowcountry') ? primaryCounty(items[i]) : items[i][1];
     counts.set(st, (counts.get(st) || 0) + 1);
   });
   grid.querySelectorAll('.sb-row').forEach(row => {
@@ -1620,6 +1649,44 @@ function updateStateBreakdown() {
     if (gotN === total) row.classList.add('complete');
     else if (gotN > 0) row.classList.add('partial');
   });
+}
+
+// For the Lowcountry quiz: a fixed 4-county breakdown. Cross-county places
+// (e.g., Ladson, Summerville) are attributed to the first county listed
+// in their county field, which we treat as the "primary".
+const LC_COUNTIES = ['Charleston', 'Berkeley', 'Dorchester', 'Colleton'];
+
+function primaryCounty(item) {
+  // item[1] is e.g. "Charleston" or "Charleston/Berkeley/Dorchester"
+  return String(item[1]).split('/')[0];
+}
+
+function renderCountyBreakdown(items) {
+  const totals = new Map(LC_COUNTIES.map(c => [c, { total: 0, indices: [] }]));
+  items.forEach((c, i) => {
+    const cty = primaryCounty(c);
+    if (totals.has(cty)) {
+      totals.get(cty).total++;
+      totals.get(cty).indices.push(i);
+    }
+  });
+
+  const main = document.getElementById('main');
+  const wrap = document.createElement('div');
+  wrap.className = 'state-breakdown';
+  wrap.id = 'state-breakdown';
+  wrap.innerHTML = `<h3>Places by County</h3><div class="sb-grid" id="sb-grid"></div>`;
+  const grid = wrap.querySelector('#sb-grid');
+  LC_COUNTIES.forEach(cty => {
+    const info = totals.get(cty);
+    const row = document.createElement('div');
+    row.className = 'sb-row';
+    row.dataset.state = cty;  // reuse 'state' attr for compatibility
+    row.dataset.total = info.total;
+    row.innerHTML = `<span class="sb-abbr">${cty}</span><span class="sb-count"><span class="sb-got">0</span>/${info.total}</span>`;
+    grid.appendChild(row);
+  });
+  main.appendChild(wrap);
 }
 
 function drawUSMap(us) {
@@ -1714,6 +1781,90 @@ function drawSCMap(us) {
   quizState.proj = proj;
 }
 
+function drawLowcountryMap(us) {
+  const svg = d3.select('#us-map');
+  const W = 960, H = 720;
+  svg.attr('viewBox', `0 0 ${W} ${H}`);
+
+  // 4 Lowcountry counties: Charleston (45019), Berkeley (45015),
+  // Dorchester (45035), Colleton (45029)
+  const LC_FIPS = new Set(['45019', '45015', '45035', '45029']);
+  const allCounties = topojson.feature(us, us.objects.counties);
+  const lcCounties = {
+    type: 'FeatureCollection',
+    features: allCounties.features.filter(f => LC_FIPS.has(String(f.id).padStart(5, '0')))
+  };
+  if (lcCounties.features.length === 0) {
+    console.error('No Lowcountry counties found in atlas');
+    return;
+  }
+
+  // Merged outline of all 4 counties (used for fitting + outer border)
+  const lcMergeMesh = topojson.merge(
+    us,
+    us.objects.counties.geometries.filter(g => LC_FIPS.has(String(g.id).padStart(5, '0')))
+  );
+
+  // Interior county-to-county boundaries (within our 4)
+  const lcInteriorMesh = topojson.mesh(
+    us,
+    us.objects.counties,
+    (a, b) => a !== b
+      && LC_FIPS.has(String(a.id).padStart(5, '0'))
+      && LC_FIPS.has(String(b.id).padStart(5, '0'))
+  );
+
+  const proj = d3.geoMercator().fitExtent([[16, 16], [W - 16, H - 16]], lcMergeMesh);
+  const path = d3.geoPath(proj);
+
+  // Filled background of the 4-county region
+  svg.append('path')
+    .datum(lcMergeMesh)
+    .attr('class', 'state')
+    .attr('d', path)
+    .attr('stroke', 'none');
+
+  // Interior county lines (lighter)
+  svg.append('path')
+    .datum(lcInteriorMesh)
+    .attr('fill', 'none')
+    .attr('stroke', 'var(--map-line)')
+    .attr('stroke-width', 0.8)
+    .attr('stroke-linejoin', 'round')
+    .attr('d', path);
+
+  // Outer perimeter (thicker, darker)
+  svg.append('path')
+    .datum(lcMergeMesh)
+    .attr('fill', 'none')
+    .attr('stroke', 'var(--line)')
+    .attr('stroke-width', 1.4)
+    .attr('stroke-linejoin', 'round')
+    .attr('d', path);
+
+  // Hover layer — show county name when hovering an area without a dot
+  svg.append('g')
+    .attr('id', 'lc-county-hover')
+    .selectAll('path')
+    .data(lcCounties.features)
+    .join('path')
+    .attr('d', path)
+    .attr('fill', 'transparent')
+    .attr('stroke', 'none')
+    .attr('pointer-events', 'all')
+    .on('mousemove', function(ev, d) {
+      const tip = document.getElementById('tip');
+      tip.textContent = (d.properties && d.properties.name ? d.properties.name : 'County') + ' County';
+      tip.style.left = (ev.clientX + 12) + 'px';
+      tip.style.top  = (ev.clientY + 12) + 'px';
+      tip.classList.add('show');
+    })
+    .on('mouseout', () => document.getElementById('tip').classList.remove('show'));
+
+  svg.append('g').attr('id', 'dots');
+  quizState.proj = proj;
+}
+
 function placeCityDot(cityArr, missed=false) {
   const [name, state, pop, lat, lon] = cityArr;
   const pt = quizState.proj([lon, lat]);
@@ -1730,7 +1881,12 @@ function placeCityDot(cityArr, missed=false) {
   }
   dot.on('mousemove', (ev) => {
     const tip = document.getElementById('tip');
-    tip.textContent = `${name}, ${state} — ${pop.toLocaleString()}`;
+    // Lowcountry: state field is a county string (possibly compound) — show
+    // just the primary county with " Co." suffix instead.
+    const stateLabel = (quizState && quizState.kind === 'lowcountry')
+      ? `${primaryCounty(cityArr)} Co.`
+      : state;
+    tip.textContent = `${name}, ${stateLabel} — ${pop.toLocaleString()}`;
     tip.style.left = (ev.clientX + 12) + 'px';
     tip.style.top  = (ev.clientY + 12) + 'px';
     tip.classList.add('show');
@@ -1913,7 +2069,12 @@ function creditIndex(i) {
     // Only paint the dot in easy mode; in hard mode we'll repaint on reveal
     if (!isHardActive) {
       placeCityDot(item, false);
-      flash(`${name}, ${state}`, 'good');
+      // For Lowcountry, the "state" field is a county string (possibly compound).
+      // Just show the place name + primary county for readability.
+      const flashLabel = (quizState.kind === 'lowcountry')
+        ? `${name}, ${primaryCounty(item)} Co.`
+        : `${name}, ${state}`;
+      flash(flashLabel, 'good');
     }
     const slot = document.querySelector(`#state-grid .st-slot[data-item-idx="${i}"]`);
     if (slot) {
@@ -1985,6 +2146,7 @@ function updatePills(finalReveal) {
     if (kind === 'countries') return item[0];
     if (kind === 'capitals') return item[0];
     if (kind === 'metros100') return item[0].split(',')[0];
+    if (kind === 'lowcountry') return item[0];
     return `${item[0]}, ${item[1]}`;
   };
   if (!finalReveal) {
