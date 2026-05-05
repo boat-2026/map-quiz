@@ -229,6 +229,8 @@
   .country { fill: var(--map-land); stroke: var(--map-line); stroke-width: 0.4; transition: fill .25s; }
   .country.answered { fill: var(--good); }
   .country.missed { fill: var(--bad); }
+  /* Capitals quiz: subtle tint on the country whose capital was named */
+  .country.capital-answered { fill: #cfe4d4; }
   .state { fill: var(--map-land); stroke: var(--map-line); stroke-width: 0.6; }
   .city-dot { fill: var(--good); stroke: var(--card); stroke-width: 1.2; }
   .city-dot.missed { fill: var(--bad); }
@@ -844,6 +846,7 @@ let quizState = null;
 const MODES = [
   { id: 'home',      label: 'Home' },
   { id: 'countries', label: 'Countries of the World' },
+  { id: 'capitals',  label: 'World Capitals' },
   { id: 'top200',    label: 'Top 200 US Cities' },
   { id: 'states3',   label: 'Top 3 per State' },
   { id: 'metros100', label: 'Top 100 US Metros' },
@@ -865,6 +868,7 @@ function setMode(m) {
   renderNav();
   if (m === 'home') renderHome();
   else if (m === 'countries') startCountries();
+  else if (m === 'capitals') startCapitals();
   else if (m === 'top200') startTop200();
   else if (m === 'states3') startStates3();
   else if (m === 'metros100') startMetros100();
@@ -881,6 +885,13 @@ function renderHome() {
         <div>
           <h2>Countries of the World</h2>
           <p>Name all 197 sovereign countries. Choose easy mode (with map fill-in) or hard mode (no map until you're done).</p>
+        </div>
+        <span class="count">197 answers</span>
+      </div>
+      <div class="card" data-go="capitals">
+        <div>
+          <h2>World Capitals</h2>
+          <p>Every capital city in the world, by continent or all at once. The country lights up faintly when you name its capital.</p>
         </div>
         <span class="count">197 answers</span>
       </div>
@@ -1436,6 +1447,224 @@ function drawMetrosMap(us) {
     .attr('d', path);
 }
 
+/* =========================================================================
+   WORLD CAPITALS QUIZ
+   Pre-quiz: continent picker.  Then the actual quiz with continent-specific
+   map projection, dots, and a population-ranked table.
+   ========================================================================= */
+function startCapitals() {
+  // Build continent counts
+  const counts = {};
+  CONTINENT_ORDER.forEach(c => counts[c] = 0);
+  CAPITALS.forEach(([name, iso]) => {
+    const cont = CONTINENT_OF[iso];
+    if (cont) counts[cont]++;
+  });
+  const total = CAPITALS.length;
+
+  const entries = [
+    { id: 'all',           label: 'All Continents', count: total,
+      sub: 'Every capital from Algiers to Yaren — the full 197.' },
+    { id: 'Africa',        label: 'Africa', count: counts.Africa,
+      sub: '54 capitals. Big continent, lots of names that aren’t the largest city.' },
+    { id: 'Asia',          label: 'Asia', count: counts.Asia,
+      sub: '49 capitals — the longest list and arguably the toughest.' },
+    { id: 'Europe',        label: 'Europe', count: counts.Europe,
+      sub: '45 capitals densely packed. Microstates and all.' },
+    { id: 'North America', label: 'North America', count: counts['North America'],
+      sub: '23 capitals across mainland NA, the Caribbean, and Central America.' },
+    { id: 'South America', label: 'South America', count: counts['South America'],
+      sub: '12 capitals — the fastest round.' },
+    { id: 'Oceania',       label: 'Oceania', count: counts.Oceania,
+      sub: '14 capitals — Australia, NZ, and the Pacific island nations.' },
+  ];
+
+  document.getElementById('main').innerHTML = `
+    <div class="quiz-top">
+      <h2 class="quiz-title">World Capitals</h2>
+      <div class="stats" style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.05em;">
+        Pick a region to begin
+      </div>
+    </div>
+    <div class="home" id="cont-picker">
+      ${entries.map(e => `
+        <div class="card" data-cont="${e.id}">
+          <div>
+            <h2>${e.label}</h2>
+            <p>${e.sub}</p>
+          </div>
+          <span class="count">${e.count} answers</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  document.querySelectorAll('#cont-picker .card').forEach(c => {
+    c.onclick = () => startCapitalsQuiz(c.dataset.cont);
+  });
+}
+
+async function startCapitalsQuiz(continent) {
+  const items = continent === 'all'
+    ? CAPITALS.slice()
+    : CAPITALS.filter(([n, iso]) => CONTINENT_OF[iso] === continent);
+
+  const title = continent === 'all'
+    ? 'World Capitals'
+    : `${continent} Capitals`;
+
+  renderQuizShell({
+    title,
+    totalCount: items.length,
+    mapId: 'world-map',
+    hasDifficulty: false
+  });
+  document.getElementById('main').insertAdjacentHTML('afterbegin',
+    '<div class="loading" id="ld">Loading map…</div>');
+
+  // keyMap: capital name + aliases -> [item index]
+  const keyMap = new Map();
+  const addKey = (k, i) => {
+    if (!keyMap.has(k)) keyMap.set(k, []);
+    if (!keyMap.get(k).includes(i)) keyMap.get(k).push(i);
+  };
+  items.forEach(([name, iso, aliases], i) => {
+    addKey(norm(name), i);
+    (aliases || []).forEach(a => addKey(norm(a), i));
+  });
+
+  quizState = {
+    kind: 'capitals',
+    continent,
+    items,
+    got: new Set(),
+    keyMap,
+    elapsedMs: 0,
+    runStartedAt: 0,
+    timerId: null,
+    phase: 'idle',
+    difficulty: 'easy',
+    hasDifficulty: false,
+    isoToIdx: new Map(items.map(([n, iso], i) => [iso, i])),
+  };
+
+  try {
+    const world = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json').then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+    document.getElementById('ld')?.remove();
+    drawCapitalsMap(world, continent, items);
+    renderRankTable('capitals', items.map((c, i) => ({
+      idx: i, name: c[0], pop: c[3] || 0
+    })), continent === 'all'
+      ? 'Capitals by City Population'
+      : `${continent} Capitals by City Population`);
+    wireInputs();
+    wireStartPause();
+    updateStats();
+    updatePills(false);
+  } catch (e) {
+    console.error('Capitals quiz load error:', e);
+    const ld = document.getElementById('ld');
+    if (ld) ld.innerHTML = 'Failed to load world map: ' + e.message;
+  }
+}
+
+function drawCapitalsMap(world, continent, items) {
+  const svg = d3.select('#world-map');
+  const W = 960, H = continent === 'all' ? 500 : 540;
+  svg.attr('viewBox', `0 0 ${W} ${H}`);
+
+  const allFeatures = topojson.feature(world, world.objects.countries).features;
+
+  let visibleFeatures;
+  let proj;
+
+  if (continent === 'all') {
+    visibleFeatures = allFeatures;
+    proj = d3.geoNaturalEarth1()
+      .fitSize([W, H], { type: 'FeatureCollection', features: allFeatures });
+  } else {
+    // Find the sovereign-country ISOs on this continent
+    const continentISOs = new Set();
+    COUNTRIES.forEach(([n, iso]) => {
+      if (CONTINENT_OF[iso] === continent) continentISOs.add(iso);
+    });
+    // Visible: countries on this continent (matched by ISO numeric).
+    visibleFeatures = allFeatures.filter(f => {
+      const iso = String(f.id).padStart(3, '0');
+      return continentISOs.has(iso);
+    });
+    const fc = { type: 'FeatureCollection', features: visibleFeatures };
+    if (continent === 'Oceania') {
+      // Antimeridian-spanning: rotate so 180° is centered
+      proj = d3.geoMercator().rotate([-180, 0]).fitSize([W, H], fc);
+    } else if (continent === 'North America' || continent === 'South America') {
+      proj = d3.geoMercator().fitSize([W, H], fc);
+    } else {
+      proj = d3.geoMercator().fitSize([W, H], fc);
+    }
+  }
+
+  const path = d3.geoPath(proj);
+
+  svg.selectAll('path.country')
+    .data(visibleFeatures)
+    .join('path')
+    .attr('class', 'country')
+    .attr('d', path)
+    .attr('data-iso', d => String(d.id).padStart(3, '0'))
+    .on('mousemove', function(ev, d) {
+      const iso = String(d.id).padStart(3, '0');
+      const idx = quizState.isoToIdx.get(iso);
+      // Show capital name on hover only if user has gotten it (or quiz ended)
+      if (idx != null && (quizState.got.has(idx) || quizState.phase === 'ended')) {
+        const tip = document.getElementById('tip');
+        const cap = quizState.items[idx][0];
+        // Find country name from COUNTRIES list
+        let countryName = '';
+        for (const [name, ci] of COUNTRIES) {
+          if (ci === iso) { countryName = name; break; }
+        }
+        tip.innerHTML = `<b>${cap}</b>` + (countryName ? `<br><span style="opacity:.7">${countryName}</span>` : '');
+        tip.style.left = (ev.clientX + 12) + 'px';
+        tip.style.top  = (ev.clientY + 12) + 'px';
+        tip.classList.add('show');
+      }
+    })
+    .on('mouseout', () => document.getElementById('tip').classList.remove('show'));
+
+  svg.append('g').attr('id', 'cap-dots');
+  quizState.proj = proj;
+}
+
+function placeCapitalDot(item, missed) {
+  const [name, iso, aliases, pop, lat, lon] = item;
+  const pt = quizState.proj([lon, lat]);
+  if (!pt) return;
+  const svg = d3.select('#world-map #cap-dots');
+  if (svg.empty()) return;
+  const r = missed
+    ? 2.6
+    : (pop > 5000000 ? 6 : pop > 1000000 ? 4.6 : pop > 200000 ? 3.6 : 2.8);
+  const dot = svg.append('circle')
+    .attr('class', 'city-dot' + (missed ? ' missed' : ''))
+    .attr('cx', pt[0])
+    .attr('cy', pt[1])
+    .attr('r', missed ? 2.4 : 0);
+  if (!missed) {
+    dot.transition().duration(250).attr('r', r);
+  }
+  dot.on('mousemove', (ev) => {
+    const tip = document.getElementById('tip');
+    const popStr = pop ? ` — ${pop.toLocaleString()}` : '';
+    tip.textContent = `${name}${popStr}`;
+    tip.style.left = (ev.clientX + 12) + 'px';
+    tip.style.top  = (ev.clientY + 12) + 'px';
+    tip.classList.add('show');
+  }).on('mouseout', () => document.getElementById('tip').classList.remove('show'));
+}
+
 async function startCityQuiz({ title, items, kind, withStateGrid, hasDifficulty }) {
   renderQuizShell({
     title,
@@ -1965,6 +2194,12 @@ function creditIndex(i) {
       }
     }
     if (!isHardActive) flash(name, 'good');
+  } else if (quizState.kind === 'capitals') {
+    const [name, iso] = item;
+    placeCapitalDot(item, false);
+    // Light shade on the country
+    d3.selectAll(`path.country[data-iso="${iso}"]`).classed('capital-answered', true);
+    flash(name, 'good');
   } else if (quizState.kind === 'metros100') {
     const [name, pop, aliases, fips] = item;
     fips.forEach(f => {
@@ -2016,6 +2251,8 @@ function revealMissed() {
           d3.selectAll(`path.country[data-iso="${terrIso}"]`).classed('missed', true);
         }
       }
+    } else if (kind === 'capitals') {
+      placeCapitalDot(item, true);
     } else if (kind === 'metros100') {
       const fips = item[3];
       fips.forEach(f => {
@@ -2044,6 +2281,7 @@ function updatePills(finalReveal) {
   if (!container) return;
   const nameOf = (item) => {
     if (kind === 'countries') return item[0];
+    if (kind === 'capitals') return item[0];
     if (kind === 'metros100') return item[0].split(',')[0];
     return `${item[0]}, ${item[1]}`;
   };
